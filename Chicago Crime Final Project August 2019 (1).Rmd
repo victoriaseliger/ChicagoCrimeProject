@@ -1,0 +1,264 @@
+---
+title: "Crime in Chicago"
+author: "Victoria Seliger"
+date: "April 25, 2018"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+## Section I: Introduction
+
+In my project, I am exploring the relationship between different variables in Chicago and the occurrences of crimes.  My working hypothesis is that as temperature increases, so does the number of violent crimes.  Additionally, crime is very segregated in Chicago, so a few Wards and community areas will have a large proportion of crime occurrences.  These relationships are often referenced in movies and music, and I wanted to see if the relationships had any statistical backing.  I am using 2018 crime data imported from the Chicago crime data portal.  This data has around 35000 observations and is a record of every crime committed in Chicago, logged by description, ward, community area, type of crime, and other descriptors.  This data is especially interesting and relevant to me because as a native Chicagoan, the issues of violence and crime facing our city have always been a part of my life.  I am also using temperature data from the Chicago data portal.  This is two temperature recordings per day, gathered from beach stations in Chicago.  The main difficulty in this project will be manipulating the data so that it is in forms I can work with. For example, averaging two daily temperature reports into one for each day, and turning the crime logs into a crime count for each day.
+
+
+## Section II: Exploratory Data Analysis
+First, I read in all the data I will be using.  I am using Socrata to read in so that I can use the most up to date data as possible.  Both my Crime and Weather data are from the city of Chicago data portal.
+```{r, include=FALSE}
+
+library(ggplot2)
+library(RSocrata)
+require(dplyr)
+require(lubridate)
+CrimeData2018socrata<-read.socrata("https://data.cityofchicago.org/Public-Safety/Crimes-2018/3i3m-jwuy")
+Weather<-read.socrata("https://data.cityofchicago.org/Parks-Recreation/Beach-Weather-Stations-Automated-Sensors/k7hf-8y75/data")
+
+CrimeData2018socrata$arrest<-as.factor(CrimeData2018socrata$Arrest)
+CrimeData2018socrata$primary_type<-as.factor(CrimeData2018socrata$Primary.Type)
+CrimeData2018socrata$domestic<-as.factor(CrimeData2018socrata$Domestic)
+CrimeData2018socrata$ward<-as.factor(CrimeData2018socrata$Ward)
+```
+My dependent variable is the count of crimes occurring.  I will be exploring the relationship between crime and daily temperature, crime and ward, and crime and day of week to see which variable can most accurately explain the occurrence of crime.
+
+###Explanatory and Response variables
+
+##Crime count by day
+
+```{r, include=FALSE}
+colnames(CrimeData2018socrata)[colnames(CrimeData2018socrata)=="Date"] <- "dateandTime"
+CrimeData2018socrata$date<-date(CrimeData2018socrata$dateandTime)
+
+crimeCount<-CrimeData2018socrata %>%
+  group_by(date) %>%
+count(date)
+```
+```{r, include=TRUE}
+summary(crimeCount)
+```
+From the summary of daily crime counts, we can see the range of both the date and count data.  We can see that the minimum number of crimes in a day was `r min(crimeCount$n)` and the maximum was `r max(crimeCount$n)`.  On average, `r median(crimeCount$n)` crimes are committed per day.
+
+```{r}
+ggplot(crimeCount, aes(date,n))+ geom_line()
+```
+
+
+```{r, include=FALSE}
+######make weather numeric, find average for each day
+colnames(Weather)[colnames(Weather)=="measurement_timestamp"]<-"dateandTime"
+
+Weather$air_temperature<-as.numeric(Weather$air_temperature)
+Weather$date<-date(Weather$dateandTime)
+tempAdjusted<- Weather %>%
+  select(date, air_temperature) %>%
+  group_by(date) %>%
+ summarise(temp = mean(air_temperature))
+#######convert celsius to farenheit
+tempAdjusted$temp<-tempAdjusted$temp*1.8+32
+```
+```{r, include=TRUE}
+summary(tempAdjusted$temp)
+```
+I am looking at this data combined with the temperature data for each day.  From the summary of temperature data, we can see the range of temperatures as well as the average daily temperature, `r median(tempAdjusted$temp, na.rm=TRUE)`.
+```{r}
+plot(tempAdjusted$date, tempAdjusted$temp, xlab = "Date", ylab = "Temperature")
+```
+
+
+
+##Crime Count by ward
+
+```{r, include=FALSE}
+
+crimeCountWard<-CrimeData2018socrata %>%
+  group_by(ward) %>%
+count(ward)
+summary(crimeCountWard)
+```
+From the summary of crime count by wards, we can see the range of both the ward and count data.  We can see that the minimum number of crimes in a ward is `r min(crimeCountWard$n)` and the maximum was `r max(crimeCountWard$n)`.  On average, `r median(crimeCountWard$n)` crimes are committed in each ward.  We can see from the graph that this is not a uniform distribution, with the 42nd ward being an outlier.
+
+```{r}
+ggplot(crimeCountWard, aes(ward,n))+geom_col()+theme(text = element_text(size=9),
+        axis.text.x = element_text(angle=90, hjust=1))
+```
+
+##Crime count by day of week
+From the summary of crime count by day of week, we can see the count of crime that has occurred on each day of week.   We can see that the counts have a pretty small range- there is not much variability between days of the week in terms on number of crimes occurring.  From the graph, the data appears skewed left, meaning the median is greater than the mean.  More crime tend to happen later on in the week, such as on Friday or Saturday.
+```{r}
+CrimeData2018socrata$wday <- wday(CrimeData2018socrata$date, label = TRUE)
+summary(CrimeData2018socrata$wday)
+```
+
+```{r}
+plot(CrimeData2018socrata$wday, ylab ="Crime Count" )
+```
+
+## Section III: Simple Linear Regression
+
+
+For my regression, I will explore the relationship between temperature and number of crimes committed on a given day.  I expect that as temperature increases, the number of crimes committed increases.
+
+```{r, include=FALSE}
+
+###############################################################combine temp and crime data
+crimeCount$date<-as.POSIXct(crimeCount$date)
+tempAdjusted$date<-as.POSIXct(tempAdjusted$date)
+combinedSet<-left_join(crimeCount, tempAdjusted)
+
+```
+
+```{r, include=TRUE}
+
+fit1<-lm(combinedSet$n~combinedSet$temp)
+plot(combinedSet$temp, combinedSet$n, xlab = "Temperature", ylab = "Crime Count")+abline(fit1)
+```
+
+As seen in my regression model, there is a positive relationship between temperature and crimes committed, confirming my hypothesis.  The coefficient is `r summary(fit1)$coefficients[2]`, which means that according to the model, for every 1 degree higher the temperature is, `r summary(fit1)$coefficients[2]` more crimes are committed that day, holding all other variables constant.  The R^2 value of my regression line is `r summary(fit1)$adj.r.squared`, meaning that temperature explains `r summary(fit1)$adj.r.squared` of variability in crimes committed, suggesting that this model is not very good.  This is surprising to me because I thought temperature would have been a good indicator, but this value may be low because I am only using data from 2018, and we are only 4 months into the year.
+
+
+## Section IV: Multiple Linear Regression
+
+The model I wanted to explore was crime count per day as explained by weekday, temperature, and month.
+
+I started by looking at a regression of crime count per day with predictors weekday and daily temperature.
+```{r, include=FALSE}
+combinedSet$weekday<-wday(combinedSet$date, label = TRUE)
+combinedSet$weekday<- factor(combinedSet$weekday, ordered = FALSE)
+combinedSet$month<-month(combinedSet$date, label = TRUE)
+combinedSet$month<-factor(combinedSet$month, ordered=FALSE)
+fit4<-lm(combinedSet$n~factor(combinedSet$weekday)+combinedSet$temp)
+
+
+```
+
+```{r, include=TRUE}
+summary(fit4)
+```
+As seen in my regression model, there is some relationship between weekday and temperature and crimes committed per day.  The p values for the variables at the 10% significance level indicate that all the variables are significant predictors.
+
+The coefficients are: 
+
+Intercept (Sunday)-  The model says that at zero degrees of temperature, `r summary(fit4)$coefficients[1]` crimes are committed on Sundays, holding all other variables constant.
+
+Monday- `r summary(fit4)$coefficients[2]`, which means that according to the model, on Mondays `r summary(fit4)$coefficients[2]` more crimes are committed on Mondays than on Sundays, holding all other variables constant.  
+
+Tuesday- `r summary(fit4)$coefficients[3]`, on Tuesdays, `r summary(fit4)$coefficients[3]` more crimes are committed than on Sundays, holding all other variables constant.
+
+Wednesday- `r summary(fit4)$coefficients[4]`, on Wednesdays, `r summary(fit4)$coefficients[4]` more crimes are committed than on Sundays, holding all other variables constant.
+
+Thursday- `r summary(fit4)$coefficients[5]`, on Thursdays, `r summary(fit4)$coefficients[5]` more crimes are committed than on Sundays, holding all other variables constant.
+
+Friday- `r summary(fit4)$coefficients[6]`, on Fridays, `r summary(fit4)$coefficients[6]` more crimes are committed than on Sundays, holding all other variables constant.
+
+Saturday- `r summary(fit4)$coefficients[7]`, on Saturdays, `r summary(fit4)$coefficients[7]` more crimes are committed than on Sundays, holding all other variables constant.
+
+The temperature coefficient of temperature `r summary(fit4)$coefficients[8]` indicates that for every 1 degree higher the temperature goes, `r summary(fit4)$coefficients[8]` more crimes are committed per day, holding all other variables constant.
+
+The adjusted R^2 value of my regression line is `r summary(fit4)$adj.r.squared`, meaning that the predictors weekday and temperature explains `r summary(fit4)$adj.r.squared` of variability in crimes committed, suggesting that this model is somewhat good.
+
+Next, I decided to look at a regression of crime count per day with predictors month and daily temperature.
+
+```{r, include=FALSE}
+
+fit5<-lm(combinedSet$n~factor(combinedSet$month)+combinedSet$temp)
+```
+
+```{r, include=TRUE}
+
+summary(fit5)
+```
+
+This model explains slightly more of the crime than the last one, at `r summary(fit5)$adj.r.squared`.
+
+
+Lastly, I created a model using weekday, month, and temperature as predictors for crime committed per day.
+```{r, include=FALSE}
+
+fit6<-lm(combinedSet$n~factor(combinedSet$weekday)+factor(combinedSet$month)+combinedSet$temp)
+
+```
+
+```{r, include=TRUE}
+
+summary(fit6)
+```
+
+
+This model has the strongest adjusted r squared of my models, at `r summary(fit6)$adj.r.squared`.
+meaning that the predictors weekday and temperature explains `r summary(fit6)$adj.r.squared` of variability in crimes committed, suggesting that this model is good.  My adjusted r squared increased as I added the variables of weekday month, and temperature together.
+
+###Diagnostics
+```{r, include=TRUE}
+par(mfrow=c(2,2))
+plot(fit6)
+
+```
+
+####Graph 1: Residuals vs. fitted
+My residuals look random and there is no non-linear pattern present.  Additionally, the slope of the fitted line of residuals is pretty flat.  Both of these indicate independence and a model that fits well.
+
+####Graph 2: Normal Q-Q
+This plot indicates my residuals are normally distributed as they are mostly all tight on the dashed line.  This plot indicates a few potential outliers, such as observations 40, 15, and 1 but overall the fit is good and indicated a strong model.
+
+####Graph 3:Scale Location
+The fit line has a flat slope and points look randomly scattered, indicating homoskedasticity.  This means that variance is random and residuals are spread equally along predictors.  This plot again indicates outliers 1,15, and 40.
+
+####Graph 4:Residuals vs. Leverage
+This graph indicates influential points.  None of my points look overly influential, with the exception of observation 1 in the upper right corner.  While not very influential, observations 15 and 40 have slightly larger residuals.
+
+## Section V: Hypothesis Testing
+
+Days of the week
+```{r, include=FALSE}
+nDays<-CrimeData2018socrata %>%
+  group_by(wday) %>%
+count(wday)
+print(nDays)
+
+crimeCount$weekday<-wday(crimeCount$date, label = TRUE)
+```
+H~0~- mu~Monday~=mu~Friday~
+
+The null hypothesis is that the average amount of crimes on Monday and Friday are equal.
+
+H~a~- mu~Monday~???mu~Friday~
+
+The alternative hypothesis is that the amounts of crimes on Monday and Friday are not equal.
+
+I conducted a t test on whether or not the true mean of counts over the two days of week were equal.
+```{r, include=TRUE}
+countMonday<-crimeCount$n[crimeCount$weekday=="Mon"]
+countFriday<-crimeCount$n[crimeCount$weekday=="Fri"]
+t.test(countMonday,countFriday,alternative="two.sided", conf.level = 0.95)
+```
+Based on how small my p-value from the test is, we can reject the null and say with 95% confidence that there is a difference in the true means of crime counts between Mondays and Fridays.  This is additionally confirmed based on the 95% confidence interval not including 0 (no difference in means). 
+
+## Section VI: Conclusions
+
+Overall, this project was a very interesting experience for me.  I got to face firsthand some of the difficulties of working with real world data and also got to learn about and understand my city a little bit better.  Most of my challenges throughout this project were related to figuring out how to make my data work with what I wanted to do.  I had to make many adjustments to get my two data sources to match in format so that I could work with them together.
+
+It may have been interesting to separate crimes into different categories and analyze predictor variables this way.  For example, nonviolent crimes such as burglary or domestic incidents may be more routine while violent crimes such as assault and murder could be spur of the moment or caused by other underlying variables.  Additionally, it may have been useful to try to find lurking variables such as whether or not school is in session.  This could be lurking because school is out in the summer, which could increase crime while making it seem like the relationship between temperature and crime was higher than it was.
+
+I wasn't able to find a perfect model to describe the occurrence of crime in Chicago, but throughout trying different models I was able to see which variables had more and less correlation with crime and build a model that was pretty good.  My final model was a multiple regression of crime with predictors weekday, month and temperature.  The adjusted r squared of this model was 0.4768, and 9 out of 11 predictors were significant based on the p-values.  It was very interesting to explore the relationships of these variables in a context that was so applicable to my life.
+
+
+## Pledge
+
+**On my honor, I have neither given nor recieved any unauthorized assistance on this work.**
+
+*Victoria Seliger*
+
