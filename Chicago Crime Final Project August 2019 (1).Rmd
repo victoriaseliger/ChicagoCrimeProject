@@ -35,9 +35,9 @@ CrimeData2018socrata$ward<-as.factor(CrimeData2018socrata$Ward)
 ```
 My dependent variable is the count of crimes occurring.  I will be exploring the relationship between crime and daily temperature, crime and ward, and crime and day of week to see which variable can most accurately explain the occurrence of crime.
 
-###Explanatory and Response variables
+### Explanatory and Response variables
 
-##Crime count by day
+## Crime count by day
 
 ```{r, include=FALSE}
 colnames(CrimeData2018socrata)[colnames(CrimeData2018socrata)=="Date"] <- "dateandTime"
@@ -80,7 +80,7 @@ plot(tempAdjusted$date, tempAdjusted$temp, xlab = "Date", ylab = "Temperature")
 
 
 
-##Crime Count by ward
+## Crime Count by ward
 
 ```{r, include=FALSE}
 
@@ -96,7 +96,7 @@ ggplot(crimeCountWard, aes(ward,n))+geom_col()+theme(text = element_text(size=9)
         axis.text.x = element_text(angle=90, hjust=1))
 ```
 
-##Crime count by day of week
+## Crime count by day of week
 From the summary of crime count by day of week, we can see the count of crime that has occurred on each day of week.   We can see that the counts have a pretty small range- there is not much variability between days of the week in terms on number of crimes occurring.  From the graph, the data appears skewed left, meaning the median is greater than the mean.  More crime tend to happen later on in the week, such as on Friday or Saturday.
 ```{r}
 CrimeData2018socrata$wday <- wday(CrimeData2018socrata$date, label = TRUE)
@@ -201,23 +201,23 @@ summary(fit6)
 This model has the strongest adjusted r squared of my models, at `r summary(fit6)$adj.r.squared`.
 meaning that the predictors weekday and temperature explains `r summary(fit6)$adj.r.squared` of variability in crimes committed, suggesting that this model is good.  My adjusted r squared increased as I added the variables of weekday month, and temperature together.
 
-###Diagnostics
+### Diagnostics
 ```{r, include=TRUE}
 par(mfrow=c(2,2))
 plot(fit6)
 
 ```
 
-####Graph 1: Residuals vs. fitted
+#### Graph 1: Residuals vs. fitted
 My residuals look random and there is no non-linear pattern present.  Additionally, the slope of the fitted line of residuals is pretty flat.  Both of these indicate independence and a model that fits well.
 
-####Graph 2: Normal Q-Q
+#### Graph 2: Normal Q-Q
 This plot indicates my residuals are normally distributed as they are mostly all tight on the dashed line.  This plot indicates a few potential outliers, such as observations 40, 15, and 1 but overall the fit is good and indicated a strong model.
 
-####Graph 3:Scale Location
+#### Graph 3:Scale Location
 The fit line has a flat slope and points look randomly scattered, indicating homoskedasticity.  This means that variance is random and residuals are spread equally along predictors.  This plot again indicates outliers 1,15, and 40.
 
-####Graph 4:Residuals vs. Leverage
+#### Graph 4:Residuals vs. Leverage
 This graph indicates influential points.  None of my points look overly influential, with the exception of observation 1 in the upper right corner.  While not very influential, observations 15 and 40 have slightly larger residuals.
 
 ## Section V: Hypothesis Testing
